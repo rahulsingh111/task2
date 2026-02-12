@@ -1,3 +1,7 @@
 runpod
-requests
-python-dotenv
+torch
+diffusers
+transformers
+accelerate
+sentencepiece
+protobuf

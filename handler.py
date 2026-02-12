@@ -1,64 +1,42 @@
 import runpod
-import requests
-import os
-import time
+import torch
+from diffusers import FluxPipeline
 import base64
+from io import BytesIO
 
-BFL_API_KEY = os.environ.get("BFL_API_KEY")
+
+# Optimization: Load model once for all requests
+def load_model():
+    pipe = FluxPipeline.from_pretrained(
+        "black-forest-labs/FLUX.1-dev",
+        torch_dtype=torch.bfloat16
+    )
+    # This helps fit the model in GPU memory
+    pipe.enable_model_cpu_offload()
+    return pipe
 
 
-def handler(event):
-    try:
-        prompt = event["input"]["prompt"]
-        width = event["input"].get("width", 1024)
-        height = event["input"].get("height", 1024)
+MODEL = load_model()
 
-        # 1️⃣ Submit generation request
-        response = requests.post(
-            "https://api.bfl.ai/v1/flux-2-pro",
-            headers={
-                "accept": "application/json",
-                "x-key": BFL_API_KEY,
-                "Content-Type": "application/json",
-            },
-            json={
-                "prompt": prompt,
-                "width": width,
-                "height": height
-            },
-        ).json()
 
-        if "id" not in response:
-            return {"error": f"Unexpected API response: {response}"}
+def handler(job):
+    job_input = job['input']
+    prompt = job_input.get('prompt', 'A cyberpunk cat')
 
-        request_id = response["id"]
+    # Generate image
+    image = MODEL(
+        prompt,
+        height=job_input.get('height', 1024),
+        width=job_input.get('width', 1024),
+        num_inference_steps=20
+    ).images[0]
 
-        # 2️⃣ Poll using request ID
-        polling_url = f"https://api.bfl.ai/v1/flux-2-pro/{request_id}"
+    # Convert to base64 so you can see it in your browser
+    buffered = BytesIO()
+    image.save(buffered, format="PNG")
+    img_str = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
-        while True:
-            poll = requests.get(
-                polling_url,
-                headers={"x-key": BFL_API_KEY}
-            ).json()
-
-            if poll.get("status") == "Ready":
-                image_url = poll["result"]["sample"]
-                break
-
-            if poll.get("status") == "Error":
-                return {"error": poll}
-
-            time.sleep(2)
-
-        # 3️⃣ Download image
-        image_bytes = requests.get(image_url).content
-        image_base64 = base64.b64encode(image_bytes).decode()
-
-        return {"image_base64": image_base64}
-
-    except Exception as e:
-        return {"error": str(e)}
+    return {"image": img_str}
 
 
 runpod.serverless.start({"handler": handler})

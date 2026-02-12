@@ -1,17 +1,6 @@
-FROM python:3.10-slim
-
-# Prevent Python from buffering logs
-ENV PYTHONUNBUFFERED=1
-
-WORKDIR /app
-
-# Install dependencies
+FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-devel
+WORKDIR /
 COPY requirements.txt .
-RUN pip install --upgrade pip \
-    && pip install --no-cache-dir -r requirements.txt
-
-# Copy handler
+RUN pip install --no-cache-dir -r requirements.txt
 COPY handler.py .
-
-# Start RunPod serverless
-CMD ["python", "-u", "handler.py"]
+CMD ["python3", "-u", "handler.py"]
