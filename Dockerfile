@@ -1,4 +1,4 @@
-FROM pytorch/pytorch:2.4.0-cuda12.4-cudnn9-devel
+FROM python:3.11-slim
 WORKDIR /
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
