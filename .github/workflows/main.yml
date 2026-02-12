@@ -2,12 +2,13 @@ name: CI/CD for RunPod Flux
 
 on:
   push:
-    branches: [ "main" ] # Triggered every time you push to the main branch
+    branches: [ "main", "task2-api" ]
+  workflow_dispatch:
 
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
-    # GitHub provides 7GB+ of RAM for this, saving your local memory
+    
     
     steps:
       - name: Checkout Code
@@ -28,7 +29,6 @@ jobs:
           context: .
           file: ./Dockerfile
           push: true
-          # REPLACE 'your-username' with your actual Docker Hub username
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/flux-runpod:latest 
           cache-from: type=gha
           cache-to: type=gha,mode=max
