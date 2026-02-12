@@ -6,14 +6,14 @@ import base64
 
 BFL_API_KEY = os.environ.get("BFL_API_KEY")
 
+
 def handler(event):
     try:
-        # Get prompt from user request
         prompt = event["input"]["prompt"]
         width = event["input"].get("width", 1024)
         height = event["input"].get("height", 1024)
 
-        # Submit generation request
+        # 1️⃣ Submit generation request
         response = requests.post(
             "https://api.bfl.ai/v1/flux-2-pro",
             headers={
@@ -28,25 +28,30 @@ def handler(event):
             },
         ).json()
 
-        polling_url = response["polling_url"]
+        if "id" not in response:
+            return {"error": f"Unexpected API response: {response}"}
 
-        # Poll until ready
+        request_id = response["id"]
+
+        # 2️⃣ Poll using request ID
+        polling_url = f"https://api.bfl.ai/v1/flux-2-pro/{request_id}"
+
         while True:
             poll = requests.get(
                 polling_url,
                 headers={"x-key": BFL_API_KEY}
             ).json()
 
-            if poll["status"] == "Ready":
+            if poll.get("status") == "Ready":
                 image_url = poll["result"]["sample"]
                 break
 
-            if poll["status"] == "Error":
-                return {"error": "Generation failed"}
+            if poll.get("status") == "Error":
+                return {"error": poll}
 
             time.sleep(2)
 
-        # Download image and convert to base64
+        # 3️⃣ Download image
         image_bytes = requests.get(image_url).content
         image_base64 = base64.b64encode(image_bytes).decode()
 
@@ -54,5 +59,6 @@ def handler(event):
 
     except Exception as e:
         return {"error": str(e)}
+
 
 runpod.serverless.start({"handler": handler})
